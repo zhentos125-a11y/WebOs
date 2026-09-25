@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebOS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+        }
+
+        #desktop {
+            width: 100%;
+            height: calc(100vh - 48px);
+            position: relative;
+            padding: 20px;
+        }
+
+        .desktop-icon {
+            width: 80px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 20px;
+            user-select: none;
+            transition: transform 0.2s;
+        }
+
+        .desktop-icon:hover {
+            transform: scale(1.05);
+        }
+
+        .desktop-icon .icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .desktop-icon .label {
+            color: white;
+            font-size: 12px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+
+        .window {
+            position: absolute;
+            min-width: 300px;
+            min-height: 200px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            resize: both;
+            overflow: hidden;
+        }
+
+        .window-header {
+            background: #f0f0f0;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move;
+            user-select: none;
+        }
+
+        .window-title {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .window-controls button {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            margin-left: 8px;
+            padding: 0 4px;
+        }
+
+        .window-content {
+            flex: 1;
+            padding: 15px;
+            overflow: auto;
+        }
+
+        #taskbar {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            height: 48px;
+            background: rgba(20, 20, 30, 0.95);
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            gap: 8px;
+        }
+
+        .taskbar-item {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .taskbar-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        #start-button {
+            background: #667eea;
+            font-weight: 600;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+            resize: none;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="desktop"></div>
+    <div id="taskbar">
+        <div class="taskbar-item" id="start-button">⊞ Пуск</div>
+    </div>
+
+    <script>
+        class WebOS {
+            constructor() {
+                this.desktop = document.getElementById('desktop');
+                this.taskbar = document.getElementById('taskbar');
+                this.windows = [];
+                this.windowIdCounter = 0;
+                
+                this.init();
+            }
+
+            init() {
+                this.createDesktopIcons();
+            }
+
+            createDesktopIcons() {
+                const apps = [
+                    { name: 'Блокнот', icon: '📝', app: 'notepad' },
+                    { name: 'Калькулятор', icon: '🧮', app: 'calculator' },
+                    { name: 'О системе', icon: 'ℹ️', app: 'about' }
+                ];
+
+                apps.forEach(app => {
+                    const icon = document.createElement('div');
+                    icon.className = 'desktop-icon';
+                    icon.innerHTML = `
+                        <div class="icon">${app.icon}</div>
+                        <div class="label">${app.name}</div>
+                    `;
+                    icon.addEventListener('dblclick', () => this.openApp(app.app));
+                    this.desktop.appendChild(icon);
+                });
+            }
+
+            openApp(appType) {
+                const windowId = `window-${this.windowIdCounter++}`;
+                const window = this.createWindow(windowId, appType);
+                this.windows.push({ id: windowId, element: window });
+                this.addTaskbarItem(windowId, appType);
+            }
+
+            createWindow(windowId, appType) {
+                const window = document.createElement('div');
+                window.className = 'window';
+                window.id = windowId;
+                window.style.left = `${100 + Math.random() * 200}px`;
+                window.style.top = `${100 + Math.random() * 100}px`;
+
+                const titles = {
+                    notepad: 'Блокнот',
+                    calculator: 'Калькулятор',
+                    about: 'О системе'
+                };
+
+                window.innerHTML = `
+                    <div class="window-header">
+                        <div class="window-title">${titles[appType]}</div>
+                        <div class="window-controls">
+                            <button onclick="os.closeWindow('${windowId}')">×</button>
+                        </div>
+                    </div>
+                    <div class="window-content"></div>
+                `;
+
+                const content = window.querySelector('.window-content');
+                this.loadAppContent(content, appType);
+
+                this.makeDraggable(window);
+                this.desktop.appendChild(window);
+
+                return window;
+            }
+
+            loadAppContent(content, appType) {
+                switch(appType) {
+                    case 'notepad':
+                        content.innerHTML = '<textarea placeholder="Введите текст..."></textarea>';
+                        break;
+                    case 'calculator':
+                        content.innerHTML = `
+                            <div style="text-align: center;">
+                                <input type="text" id="calc-display" style="width: 100%; font-size: 24px; text-align: right; margin-bottom: 10px; padding: 10px;" readonly>
+                                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
+                                    ${['7','8','9','/','4','5','6','*','1','2','3','-','0','C','=','+'].map(btn => 
+                                        `<button onclick="os.calcButton('${btn}')" style="padding: 15px; font-size: 18px; cursor: pointer;">${btn}</button>`
+                                    ).join('')}
+                                </div>
+                            </div>
+                        `;
+                        break;
+                    case 'about':
+                        content.innerHTML = `
+                            <h2>WebOS v1.0</h2>
+                            <p>Простая веб-операционная система</p>
+                            <p>Создано с помощью HTML, CSS и JavaScript</p>
+                        `;
+                        break;
+                }
+            }
+
+            calcButton(value) {
+                const display = document.getElementById('calc-display');
+                if (!display) return;
+                
+                if (value === 'C') {
+                    display.value = '';
+                } else if (value === '=') {
+                    try {
+                        display.value = eval(display.value);
+                    } catch {
+                        display.value = 'Ошибка';
+                    }
+                } else {
+                    display.value += value;
+                }
+            }
+
+            closeWindow(windowId) {
+                const window = document.getElementById(windowId);
+                if (window) {
+                    window.remove();
+                    this.windows = this.windows.filter(w => w.id !== windowId);
+                    
+                    const taskbarItem = document.getElementById(`taskbar-${windowId}`);
+                    if (taskbarItem) taskbarItem.remove();
+                }
+            }
+
+            addTaskbarItem(windowId, appType) {
+                const titles = {
+                    notepad: '📝 Блокнот',
+                    calculator: '🧮 Калькулятор',
+                    about: 'ℹ️ О системе'
+                };
+
+                const item = document.createElement('div');
+                item.className = 'taskbar-item';
+                item.id = `taskbar-${windowId}`;
+                item.textContent = titles[appType];
+                item.onclick = () => {
+                    const window = document.getElementById(windowId);
+                    window.style.zIndex = Date.now();
+                };
+                this.taskbar.appendChild(item);
+            }
+
+            makeDraggable(window) {
+                const header = window.querySelector('.window-header');
+                let isDragging = false;
+                let offsetX, offsetY;
+
+                header.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    offsetX = e.clientX - window.offsetLeft;
+                    offsetY = e.clientY - window.offsetTop;
+                    window.style.zIndex = Date.now();
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (isDragging) {
+                        window.style.left = `${e.clientX - offsetX}px`;
+                        window.style.top = `${e.clientY - offsetY}px`;
+                    }
+                });
+
+                document.addEventListener('mouseup', () => {
+                    isDragging = false;
+                });
+            }
+        }
+
+        const os = new WebOS();
+    </script>
+</body>
+</html>
